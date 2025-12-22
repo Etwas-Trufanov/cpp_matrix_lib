@@ -164,20 +164,66 @@ namespace math {
         // ======================================================
         //  Гаусс — приведение к верхней треугольной
         // ======================================================
+        // ======================================================
+        //  Гаусс — с прямым и обратным ходом (полное решение)
+        // ======================================================
         void gauss() {
             std::size_t n = sy;
-            for (std::size_t k = 0; k < n; k++)
-            {
-                if (std::abs(m[k][k]) < 1e-12) {
-                    for (std::size_t r = k + 1; r < n; r++)
-                        if (std::abs(m[k][r]) > 1e-12)
+            if (sx != n + 1)
+                throw std::runtime_error("gauss: matrix must be n×(n+1)");
+
+            const T eps = 1e-12;
+
+            // Прямой ход: приведение к верхнетреугольному виду
+            for (std::size_t k = 0; k < n; k++) {
+                // Поиск ненулевого элемента в столбце k, начиная со строки k
+                if (std::abs(m[k][k]) < eps) {
+                    bool found = false;
+                    for (std::size_t r = k + 1; r < n; r++) {
+                        if (std::abs(m[k][r]) > eps) {
                             swap_rows(k, r);
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found) {
+                        throw std::runtime_error("gauss: matrix is singular");
+                    }
                 }
 
-                for (std::size_t y = k + 1; y < n; y++) {
-                    T c = m[k][y] / m[k][k];
-                    for (std::size_t x = k; x < sx; x++)
-                        m[x][y] -= m[x][k] * c;
+                // Нормировка строки k
+                T pivot = m[k][k];
+                for (std::size_t j = k; j < sx; j++) {
+                    m[j][k] /= pivot;
+                }
+
+                // Обнуление элементов ниже диагонали в столбце k
+                for (std::size_t i = k + 1; i < n; i++) {
+                    T factor = m[k][i];
+                    for (std::size_t j = k; j < sx; j++) {
+                        m[j][i] -= m[j][k] * factor;
+                    }
+                }
+            }
+
+            // Обратный ход
+            std::vector<T> X(n);
+            for (int i = n - 1; i >= 0; i--) {
+                X[i] = m[n][i];  // Последний столбец (свободные члены)
+                for (std::size_t j = i + 1; j < n; j++) {
+                    X[i] -= m[j][i] * X[j];
+                }
+            }
+
+            // Запись решения в последний столбец матрицы
+            for (std::size_t i = 0; i < n; i++) {
+                m[n][i] = X[i];
+            }
+
+            // оставим только диагональные единицы и решение в последнем столбце
+            for (std::size_t i = 0; i < n; i++) {
+                for (std::size_t j = i + 1; j < n; j++) {
+                    m[j][i] = 0;
                 }
             }
         }
@@ -260,6 +306,81 @@ namespace math {
             for (std::size_t i = 0; i < n; i++)
                 m[n][i] = X[i];
         }
+
+        // ======================================================
+        //  Метод прогонки для трёхдиагональной системы
+        //  Матрица должна быть n x (n+1)
+        // ======================================================
+        void tridiagonal_solve() {
+            std::size_t n = sy;
+            if (sx != n + 1)
+                throw std::runtime_error("tridiagonal_solve: matrix must be n×(n+1)");
+
+            // Векторы коэффициентов
+            std::vector<T> a(n);  // нижняя диагональ (l) - индексы 1..n-1
+            std::vector<T> b(n);  // главная диагональ (c) - индексы 0..n-1
+            std::vector<T> c(n);  // верхняя диагональ (r) - индексы 0..n-2
+            std::vector<T> f(n);  // правая часть - индексы 0..n-1
+
+            // Извлечение коэффициентов из матрицы
+            for (std::size_t i = 0; i < n; i++) {
+                // Главная диагональ
+                b[i] = m[i][i];
+
+                // Правая часть (последний столбец)
+                f[i] = m[n][i];
+
+                // Верхняя диагональ (r)
+                if (i < n - 1) {
+                    c[i] = m[i+1][i];
+                }
+
+                // Нижняя диагональ (l)
+                if (i > 0) {
+                    a[i] = m[i-1][i];
+                }
+            }
+
+            // Прямой ход метода прогонки
+            std::vector<T> alpha(n), beta(n);
+
+            // Первый шаг
+            alpha[0] = -c[0] / b[0];
+            beta[0] = f[0] / b[0];
+
+            // Промежуточные шаги
+            for (std::size_t i = 1; i < n - 1; i++) {
+                T denominator = b[i] + a[i] * alpha[i-1];
+                alpha[i] = -c[i] / denominator;
+                beta[i] = (f[i] - a[i] * beta[i-1]) / denominator;
+            }
+
+            // Последний шаг (для нахождения beta[n-1])
+            T denominator = b[n-1] + a[n-1] * alpha[n-2];
+            beta[n-1] = (f[n-1] - a[n-1] * beta[n-2]) / denominator;
+
+            // Обратный ход
+            std::vector<T> X(n);
+            X[n-1] = beta[n-1];
+
+            for (int i = n - 2; i >= 0; i--) {
+                X[i] = alpha[i] * X[i+1] + beta[i];
+            }
+
+            // Запись решения в последний столбец матрицы
+            for (std::size_t i = 0; i < n; i++) {
+                m[n][i] = X[i];
+            }
+
+            // Для наглядности: обнулим ненужные элементы и оставим только решение
+            for (std::size_t y = 0; y < n; y++) {
+                for (std::size_t x = 0; x < n; x++) {
+                    m[x][y] = 0;
+                }
+                m[y][y] = 1;  // Единицы на диагонали для красоты
+            }
+        }
+
         // ======================================================
         // Метод квадратных корней (Холецкого)
         // Решает Ax = b, где матрица — n×(n+1)
