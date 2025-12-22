@@ -7,10 +7,10 @@ int main(int argc, char** argv)
 {
     if (argc < 4) {
         std::cout << "Usage:\n";
-        std::cout << "  app <double|float> <method> <filename>\n";
+        std::cout << "  " << argv[0] << " <double|float> <method> <filename>\n";
         std::cout << "Methods:\n";
         std::cout << "  print    - вывести матрицу\n";
-        std::cout << "  gauss    - метод Гаусса\n";
+        std::cout << "  gauss    - метод Гаусса\n"; // работоспособен
         std::cout << "  jordan   - метод Жордана\n";
         std::cout << "  lu       - LU-разложение\n";
         std::cout << "  sqrt     - метод квадратных корней\n";
