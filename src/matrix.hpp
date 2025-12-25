@@ -88,21 +88,22 @@ namespace math {
         }
 
 
-        matrix<T> operator*(const matrix<T>& b) const {
-            if (sx != b.sy)
-                throw std::runtime_error("Matrix sizes incompatible for *");
+        matrix<T> operator*(const matrix<T>& other) const {
+            if (sy != other.sx)
+                throw std::runtime_error("matrix multiply: size mismatch");
 
-            matrix<T> r(b.sx, sy);
+            matrix<T> result(sx, other.sy);
 
-            for (std::size_t y = 0; y < sy; y++) {
-                for (std::size_t x = 0; x < b.sx; x++) {
-                    T acc = 0;
-                    for (std::size_t k = 0; k < sx; k++)
-                        acc += m[k][y] * b.m[x][k];
-                    r.m[x][y] = acc;
+            for (std::size_t i = 0; i < sx; i++) {
+                for (std::size_t j = 0; j < other.sy; j++) {
+                    T sum = 0;
+                    for (std::size_t k = 0; k < sy; k++) {
+                        sum += m[i][k] * other.m[k][j];
+                    }
+                    result.m[i][j] = sum;
                 }
             }
-            return r;
+            return result;
         }
 
         void add_value(T v) {
@@ -823,7 +824,99 @@ namespace math {
             return result;
         }
 
+        // ======================================================
+        // QR-разложение (модифицированный Грама-Шмидта)
+        // ======================================================
+        void qr_decomposition(matrix<T>& Q, matrix<T>& R) const {
+            if (sx != sy)
+                throw std::runtime_error("qr_decomposition: matrix must be square");
 
+            std::size_t n = sx;
+            Q = *this;
+            R = matrix<T>(n, n);
+
+            const T eps = 1e-12;
+
+            for (std::size_t j = 0; j < n; j++) {
+                // Норма столбца j
+                T norm = 0;
+                for (std::size_t i = 0; i < n; i++)
+                    norm += Q.m[i][j] * Q.m[i][j];
+
+                if (norm < eps) {
+                    R.m[j][j] = 0;
+                    for (std::size_t i = 0; i < n; i++)
+                        Q.m[i][j] = 0;
+                    Q.m[j][j] = 1;
+                    continue;
+                }
+
+                norm = std::sqrt(norm);
+                R.m[j][j] = norm;
+
+                for (std::size_t i = 0; i < n; i++)
+                    Q.m[i][j] /= norm;
+
+
+                // Ортогонализация остальных столбцов
+                for (std::size_t k = j + 1; k < n; k++) {
+                    T dot = 0;
+                    for (std::size_t i = 0; i < n; i++) {
+                        dot += Q.m[i][j] * Q.m[i][k];
+                    }
+
+                    R.m[j][k] = dot;
+
+                    for (std::size_t i = 0; i < n; i++) {
+                        Q.m[i][k] -= Q.m[i][j] * dot;
+                    }
+                }
+            }
+        }
+
+        // ======================================================
+        // QR-алгоритм для поиска собственных значений
+        // ======================================================
+        std::vector<T> qr_method(int iterations = 3000, T tol = 1e-10) const {
+            if (sx != sy)
+                throw std::runtime_error("qr_method: matrix must be square");
+
+            std::size_t n = sx;
+            matrix<T> A = *this;
+            matrix<T> Q(n, n), R(n, n);
+
+            for (int iter = 0; iter < iterations; iter++) {
+                // Сдвиг — последний диагональный элемент
+                T mu = A.m[n-1][n-1];
+
+                // A - mu*I
+                matrix<T> shifted = A;
+                for (std::size_t i = 0; i < n; i++)
+                    shifted.m[i][i] -= mu;
+
+                // QR-разложение
+                shifted.qr_decomposition(Q, R);
+
+                // A = R*Q + mu*I
+                A = R * Q;
+                for (std::size_t i = 0; i < n; i++)
+                    A.m[i][i] += mu;
+
+                // Проверка сходимости (внедиагональные элементы)
+                T off = 0;
+                for (std::size_t i = 1; i < n; i++)
+                    off += std::abs(A.m[i][i-1]);
+
+                if (off < tol)
+                    break;
+            }
+
+            std::vector<T> eigenvalues(n);
+            for (std::size_t i = 0; i < n; i++)
+                eigenvalues[i] = A.m[i][i];
+
+            return eigenvalues;
+        }
 
 
     };

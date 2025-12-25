@@ -21,6 +21,7 @@ int main(int argc, char** argv) {
         std::cout << "  inverse  - обращение матрицы (метод присоединённой матрицы)\n";     // работоспособен
         std::cout << "  inverse_lu - обращение матрицы (метод LU-разложения)\n";    // работоспособен
         std::cout << "  inverse_sqrt - обращение матрицы (метод квадратных корней)\n";  // работоспособен
+        std::cout << "  qr - разложение на собственные значения\n"; // работоспособен
         return 0;
     }
 
@@ -44,6 +45,14 @@ int main(int argc, char** argv) {
             else if (method == "inverse") { auto inv = M.inverse_by_adjoint(); inv.print(); }
             else if (method == "inverse_lu") { auto inv = M.inverse_by_lu(); inv.print(); }
             else if (method == "inverse_sqrt") { auto inv = M.inverse_by_sqrt(); inv.print(); }
+            else if (method == "qr") {
+                auto eigenvalues = M.qr_method();
+                std::cout << "Собственные значения: ";
+                for (const auto& val : eigenvalues) {
+                    std::cout << val << " ";
+                }
+                std::cout << "\n";
+            }
             else std::cerr << "Unknown method\n";
         } else if (type == "float") {
             math::matrix<float> M;
@@ -60,6 +69,14 @@ int main(int argc, char** argv) {
             else if (method == "inverse") { auto inv = M.inverse_by_adjoint(); inv.print(); }
             else if (method == "inverse_lu") { auto inv = M.inverse_by_lu(); inv.print(); }
             else if (method == "inverse_sqrt") { auto inv = M.inverse_by_sqrt(); inv.print(); }
+            else if (method == "qr") {
+                auto eigenvalues = M.qr_method();
+                std::cout << "Собственные значения: ";
+                for (const auto& val : eigenvalues) {
+                    std::cout << val << " ";
+                }
+                std::cout << "\n";
+            }
             else std::cerr << "Unknown method\n";
         } else {
             std::cerr << "Unsupported type (must be float or double)\n";
