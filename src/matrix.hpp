@@ -124,8 +124,21 @@ namespace math {
                 m[i][i] += v;
         }
 
+        // ======================================================
+        //  Транспонирование матрицы
+        // ======================================================
+        matrix<T> transpose() const {
+            matrix<T> result(sy, sx); // Меняем размеры местами
+
+            for (std::size_t x = 0; x < sx; x++)
+                for (std::size_t y = 0; y < sy; y++)
+                    result.m[y][x] = m[x][y];
+
+            return result;
+        }
+
         // =======================================
-        // Операции со строками (как в C-версии)
+        // Операции со строками
         // =======================================
 
         void swap_rows(std::size_t a, std::size_t b) {
@@ -526,6 +539,392 @@ namespace math {
 
             for (size_t i = 0; i < n; i++)
                 m[n][i] = X[i];
+        }
+
+        // ======================================================
+        //  Обращение матрицы методом присоединённой матрицы
+        //  (Точная реализация по методу из документа)
+        // ======================================================
+        matrix<T> inverse_by_adjoint() {
+            if (sx != sy)
+                throw std::runtime_error("inverse_by_adjoint: matrix must be square");
+
+            std::size_t n = sx;
+            const T eps = 1e-12;
+
+            // Создаём расширенную матрицу [A|E]
+            matrix<T> aug(2 * n, n);
+
+            // Заполняем левую часть исходной матрицей
+            for (std::size_t x = 0; x < n; x++)
+                for (std::size_t y = 0; y < n; y++)
+                    aug.m[x][y] = m[x][y];
+
+            // Заполняем правую часть единичной матрицей
+            for (std::size_t x = n; x < 2 * n; x++)
+                for (std::size_t y = 0; y < n; y++)
+                    aug.m[x][y] = (x - n == y) ? static_cast<T>(1) : static_cast<T>(0);
+
+            // Применяем метод Жордана-Гаусса с правилом прямоугольника
+            for (std::size_t k = 0; k < n; k++) {
+                // Если диагональный элемент близок к нулю
+                if (std::abs(aug.m[k][k]) < eps) {
+                    bool found = false;
+                    // Ищем строку ниже с ненулевым элементом в том же столбце
+                    for (std::size_t i = k + 1; i < n; i++) {
+                        if (std::abs(aug.m[k][i]) > eps) {
+                            // Прибавляем строку i к строке k
+                            for (std::size_t j = 0; j < 2 * n; j++) {
+                                aug.m[j][k] += aug.m[j][i];
+                            }
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found) {
+                        throw std::runtime_error("inverse_by_adjoint: matrix is singular");
+                    }
+                }
+
+                // 1. Пересчёт элементов вне ведущей строки и столбца по правилу прямоугольника
+                for (std::size_t i = 0; i < n; i++) {
+                    if (i == k) continue;  // Пропускаем ведущую строку
+
+                    for (std::size_t j = k + 1; j < 2 * n; j++) {
+                        // Правило прямоугольника: (i,j) = (i,j)*a_kk - (i,k)*a_kj / a_kk
+                        aug.m[j][i] = (aug.m[j][i] * aug.m[k][k] - aug.m[j][k] * aug.m[k][i]) / aug.m[k][k];
+                    }
+                }
+
+                // 2. Обнуление элементов ведущего столбца (кроме ведущего элемента)
+                for (std::size_t i = 0; i < n; i++) {
+                    if (i != k) {
+                        aug.m[k][i] = 0;
+                    }
+                }
+
+                // 3. Деление ведущей строки на ведущий элемент (по убыванию индекса)
+                T pivot = aug.m[k][k];
+                for (int j = 2 * n - 1; j >= static_cast<int>(k); j--) {
+                    aug.m[j][k] = aug.m[j][k] / pivot;
+                }
+            }
+
+            // Извлекаем обратную матрицу из правой части
+            matrix<T> result(n, n);
+            for (std::size_t x = 0; x < n; x++)
+                for (std::size_t y = 0; y < n; y++)
+                    result.m[x][y] = aug.m[n + x][y];
+
+            return result;
+        }
+
+        // ======================================================
+        //  Обращение матрицы методом LU-разложения (Холецкого)
+        // ======================================================
+        matrix<T> inverse_by_lu() {
+            if (sx != sy)
+                throw std::runtime_error("inverse_by_lu: matrix must be square");
+
+            std::size_t n = sx;
+            const T eps = 1e-12;
+
+            // Создаём копию исходной матрицы для вычислений
+            matrix<T> A_copy = *this;
+
+            // Шаг 1: LU-разложение (A = L * U)
+            // L - нижняя треугольная, U - верхняя треугольная с единицами на диагонали
+
+            matrix<T> L(n, n);
+            matrix<T> U(n, n);
+
+            // Инициализация U: единичная диагональ
+            for (std::size_t i = 0; i < n; i++) {
+                U.m[i][i] = static_cast<T>(1);
+            }
+
+            // Вычисление первого столбца L
+            for (std::size_t i = 0; i < n; i++) {
+                L.m[i][0] = A_copy.m[i][0];
+            }
+
+            // Вычисление первой строки U
+            for (std::size_t j = 1; j < n; j++) {
+                if (std::abs(L.m[0][0]) < eps)
+                    throw std::runtime_error("inverse_by_lu: matrix is singular");
+                U.m[0][j] = A_copy.m[0][j] / L.m[0][0];
+            }
+
+            // Вычисление остальных элементов L и U
+            for (std::size_t k = 1; k < n; k++) {
+                // Вычисление столбца k матрицы L
+                for (std::size_t i = k; i < n; i++) {
+                    L.m[i][k] = A_copy.m[i][k];
+                    for (std::size_t m = 0; m < k; m++) {
+                        L.m[i][k] -= L.m[i][m] * U.m[m][k];
+                    }
+                }
+
+                // Вычисление строки k матрицы U (только элементы справа от диагонали)
+                if (std::abs(L.m[k][k]) < eps)
+                    throw std::runtime_error("inverse_by_lu: matrix is singular");
+
+                for (std::size_t j = k + 1; j < n; j++) {
+                    U.m[k][j] = A_copy.m[k][j];
+                    for (std::size_t m = 0; m < k; m++) {
+                        U.m[k][j] -= L.m[k][m] * U.m[m][j];
+                    }
+                    U.m[k][j] /= L.m[k][k];
+                }
+            }
+
+            // Шаг 2: Вычисление обратных матриц L⁻¹ (Y) и U⁻¹ (X)
+
+            // L⁻¹ (обозначаем Y) - нижняя треугольная матрица
+            matrix<T> Y(n, n);
+
+            for (std::size_t i = 0; i < n; i++) {
+                for (std::size_t j = 0; j < n; j++) {
+                    if (j > i) {
+                        Y.m[j][i] = static_cast<T>(0);
+                    } else if (j == i) {
+                        if (std::abs(L.m[i][i]) < eps)
+                            throw std::runtime_error("inverse_by_lu: matrix is singular");
+                        Y.m[j][i] = static_cast<T>(1) / L.m[i][i];
+                    } else { // j < i
+                        T sum = 0;
+                        for (std::size_t m = j; m <= i - 1; m++) {
+                            sum += L.m[i][m] * Y.m[j][m];
+                        }
+                        if (std::abs(L.m[i][i]) < eps)
+                            throw std::runtime_error("inverse_by_lu: matrix is singular");
+                        Y.m[j][i] = -sum / L.m[i][i];
+                    }
+                }
+            }
+
+            // U⁻¹ (обозначаем X) - верхняя треугольная матрица
+            matrix<T> X(n, n);
+
+            // Вычисляем в обратном порядке (от n-1 до 0)
+            for (int i = n - 1; i >= 0; i--) {
+                for (int j = n - 1; j >= 0; j--) {
+                    if (j < i) {
+                        X.m[j][i] = static_cast<T>(0);
+                    } else if (j == i) {
+                        X.m[j][i] = static_cast<T>(1);
+                    } else { // j > i
+                        T sum = 0;
+                        for (int m = i + 1; m <= j; m++) {
+                            sum += U.m[i][m] * X.m[j][m];
+                        }
+                        X.m[j][i] = -sum;
+                    }
+                }
+            }
+
+            // Шаг 3: Вычисление A⁻¹ = U⁻¹ * L⁻¹ = X * Y
+            matrix<T> result = X * Y;
+
+            return result;
+        }
+
+        // ======================================================
+        //  Обращение матрицы методом квадратных корней (Холецкого)
+        //  Матрица должна быть симметрической и положительно определённой
+        // ======================================================
+        matrix<T> inverse_by_sqrt() {
+            if (sx != sy)
+                throw std::runtime_error("inverse_by_sqrt: matrix must be square");
+
+            std::size_t n = sx;
+            const T eps = 1e-12;
+
+            // Проверка симметричности матрицы (опционально)
+            for (std::size_t i = 0; i < n; i++) {
+                for (std::size_t j = i + 1; j < n; j++) {
+                    if (std::abs(m[i][j] - m[j][i]) > eps) {
+                        throw std::runtime_error("inverse_by_sqrt: matrix must be symmetric");
+                    }
+                }
+            }
+
+            // Шаг 1: Разложение A = L * L^T (метод Холецкого)
+            matrix<T> L(n, n);
+
+            // Вычисление первого столбца L
+            if (m[0][0] <= eps)
+                throw std::runtime_error("inverse_by_sqrt: matrix is not positive definite");
+
+            L.m[0][0] = std::sqrt(m[0][0]);
+
+            for (std::size_t i = 1; i < n; i++) {
+                L.m[i][0] = m[i][0] / L.m[0][0];
+            }
+
+            // Вычисление остальных элементов L
+            for (std::size_t k = 1; k < n; k++) {
+                // Диагональный элемент l[k][k]
+                T sum_diag = 0;
+                for (std::size_t m2 = 0; m2 < k; m2++) {
+                    sum_diag += L.m[k][m2] * L.m[k][m2];
+                }
+
+                T diag = m[k][k] - sum_diag;
+                if (diag <= eps)
+                    throw std::runtime_error("inverse_by_sqrt: matrix is not positive definite");
+
+                L.m[k][k] = std::sqrt(diag);
+
+                // Элементы ниже диагонали l[i][k] для i > k
+                for (std::size_t i = k + 1; i < n; i++) {
+                    T sum = 0;
+                    for (std::size_t m2 = 0; m2 < k; m2++) {
+                        sum += L.m[i][m2] * L.m[k][m2];
+                    }
+
+                    L.m[i][k] = (m[i][k] - sum) / L.m[k][k];
+                }
+            }
+
+            // Шаг 2: Вычисление обратной матрицы L⁻¹ (обозначаем Y)
+            matrix<T> Y(n, n);
+
+            for (std::size_t i = 0; i < n; i++) {
+                for (std::size_t j = 0; j < n; j++) {
+                    if (j > i) {
+                        // Выше диагонали - нули
+                        Y.m[j][i] = static_cast<T>(0);
+                    }
+                    else if (j == i) {
+                        // Диагональ: y[i][i] = 1 / l[i][i]
+                        if (std::abs(L.m[i][i]) < eps)
+                            throw std::runtime_error("inverse_by_sqrt: division by zero");
+                        Y.m[j][i] = static_cast<T>(1) / L.m[i][i];
+                    }
+                    else { // j < i
+                        // Ниже диагонали: y[i][j] = -1/l[i][i] * sum(l[i][m] * y[m][j])
+                        T sum = 0;
+                        for (std::size_t m = j; m <= i - 1; m++) {
+                            sum += L.m[i][m] * Y.m[j][m];
+                        }
+
+                        if (std::abs(L.m[i][i]) < eps)
+                            throw std::runtime_error("inverse_by_sqrt: division by zero");
+
+                        Y.m[j][i] = -sum / L.m[i][i];
+                    }
+                }
+            }
+
+            // Шаг 3: Вычисление A⁻¹ = Y^T * Y
+            matrix<T> result = Y.transpose() * Y;
+
+            return result;
+        }
+
+
+        // ======================================================
+        // QR-разложение (метод Грама-Шмидта)
+        // ======================================================
+        void qr_decomposition(matrix<T>& Q, matrix<T>& R) const {
+            if (sx != sy)
+                throw std::runtime_error("qr_decomposition: matrix must be square");
+
+            std::size_t n = sx;
+            Q = *this; // Копируем исходную матрицу в Q
+            R = matrix<T>(n, n); // Создаём нулевую матрицу R
+
+            for (std::size_t j = 0; j < n; j++) {
+                // Вычисляем норму j-го столбца Q
+                T norm = 0;
+                for (std::size_t i = 0; i < n; i++) {
+                    norm += Q.m[j][i] * Q.m[j][i];
+                }
+                norm = std::sqrt(norm);
+                R.m[j][j] = norm;
+
+                // Нормируем j-й столбец Q
+                for (std::size_t i = 0; i < n; i++) {
+                    Q.m[j][i] /= norm;
+                }
+
+                // Для каждого следующего столбца
+                for (std::size_t k = j + 1; k < n; k++) {
+                    // Вычисляем скалярное произведение столбцов j и k
+                    T dot = 0;
+                    for (std::size_t i = 0; i < n; i++) {
+                        dot += Q.m[j][i] * Q.m[k][i];
+                    }
+                    R.m[j][k] = dot;
+
+                    // Вычитаем проекцию столбца j из столбца k
+                    for (std::size_t i = 0; i < n; i++) {
+                        Q.m[k][i] -= Q.m[j][i] * dot;
+                    }
+                }
+            }
+        }
+
+        // ======================================================
+        // QR-алгоритм для нахождения собственных значений
+        // ======================================================
+        void qr_algorithm(int max_iterations = 300, T eps = 1e-12) {
+            if (sx != sy)
+                throw std::runtime_error("qr_algorithm: matrix must be square");
+
+            std::size_t n = sx;
+            matrix<T> A_current = *this;
+
+            for (int iter = 0; iter < max_iterations; iter++) {
+                matrix<T> Q(n, n), R(n, n);
+                A_current.qr_decomposition(Q, R);
+
+                // A_{k+1} = R * Q
+                A_current = R * Q;
+
+                // Проверка сходимости (внедиагональные элементы стремятся к 0)
+                bool converged = true;
+                for (std::size_t i = 0; i < n && converged; i++) {
+                    for (std::size_t j = 0; j < n && converged; j++) {
+                        if (i != j && std::abs(A_current.m[i][j]) > eps) {
+                            converged = false;
+                        }
+                    }
+                }
+
+                if (converged) {
+                    break;
+                }
+            }
+
+            // Копируем результат в текущую матрицу
+            *this = A_current;
+        }
+
+        // ======================================================
+        // Получение собственных значений из QR-алгоритма
+        // ======================================================
+        std::vector<T> qr_eigenvalues(int max_iterations = 300, T eps = 1e-12) {
+            if (sx != sy)
+                throw std::runtime_error("qr_eigenvalues: matrix must be square");
+
+            // Сохраняем оригинальную матрицу
+            matrix<T> original = *this;
+
+            // Выполняем QR-алгоритм
+            qr_algorithm(max_iterations, eps);
+
+            // Извлекаем диагональные элементы (собственные значения)
+            std::vector<T> eigenvalues(sx);
+            for (std::size_t i = 0; i < sx; i++) {
+                eigenvalues[i] = m[i][i];
+            }
+
+            // Восстанавливаем оригинальную матрицу
+            *this = original;
+
+            return eigenvalues;
         }
 
     };
