@@ -21,9 +21,6 @@ int main(int argc, char** argv) {
         std::cout << "  inverse  - обращение матрицы (метод присоединённой матрицы)\n";     // работоспособен
         std::cout << "  inverse_lu - обращение матрицы (метод LU-разложения)\n";    // работоспособен
         std::cout << "  inverse_sqrt - обращение матрицы (метод квадратных корней)\n";  // работоспособен
-        std::cout << "  qr_decomp - QR-разложение матрицы\n";
-        std::cout << "  qr_alg    - QR-алгоритм (вывод матрицы с собственными значениями на диагонали)\n";
-        std::cout << "  qr        - QR-алгоритм (вывод только собственных значений)\n";
         return 0;
     }
 
@@ -47,27 +44,6 @@ int main(int argc, char** argv) {
             else if (method == "inverse") { auto inv = M.inverse_by_adjoint(); inv.print(); }
             else if (method == "inverse_lu") { auto inv = M.inverse_by_lu(); inv.print(); }
             else if (method == "inverse_sqrt") { auto inv = M.inverse_by_sqrt(); inv.print(); }
-            else if (method == "qr") {
-                auto eigvals = M.qr_eigenvalues();
-                std::cout << "Eigenvalues:\n";
-                for (size_t i = 0; i < eigvals.size(); i++) {
-                    std::cout << "  λ" << i+1 << " = " << eigvals[i] << "\n";
-                }
-            }
-            else if (method == "qr_decomp") {
-                math::matrix<double> Q(M.size_x(), M.size_y());
-                math::matrix<double> R(M.size_x(), M.size_y());
-                M.qr_decomposition(Q, R);
-                std::cout << "Q matrix:\n";
-                Q.print();
-                std::cout << "R matrix:\n";
-                R.print();
-            }
-            else if (method == "qr_alg") {
-                M.qr_algorithm();
-                std::cout << "Matrix after QR algorithm (eigenvalues on diagonal):\n";
-                M.print();
-            }
             else std::cerr << "Unknown method\n";
         } else if (type == "float") {
             math::matrix<float> M;
@@ -84,27 +60,6 @@ int main(int argc, char** argv) {
             else if (method == "inverse") { auto inv = M.inverse_by_adjoint(); inv.print(); }
             else if (method == "inverse_lu") { auto inv = M.inverse_by_lu(); inv.print(); }
             else if (method == "inverse_sqrt") { auto inv = M.inverse_by_sqrt(); inv.print(); }
-            else if (method == "qr") {
-                auto eigvals = M.qr_eigenvalues();
-                std::cout << "Eigenvalues:\n";
-                for (size_t i = 0; i < eigvals.size(); i++) {
-                    std::cout << "  λ" << i+1 << " = " << eigvals[i] << "\n";
-                }
-            }
-            else if (method == "qr_decomp") {
-                math::matrix<float> Q(M.size_x(), M.size_y());
-                math::matrix<float> R(M.size_x(), M.size_y());
-                M.qr_decomposition(Q, R);
-                std::cout << "Q matrix:\n";
-                Q.print();
-                std::cout << "R matrix:\n";
-                R.print();
-            }
-            else if (method == "qr_alg") {
-                M.qr_algorithm();
-                std::cout << "Matrix after QR algorithm (eigenvalues on diagonal):\n";
-                M.print();
-            }
             else std::cerr << "Unknown method\n";
         } else {
             std::cerr << "Unsupported type (must be float or double)\n";
