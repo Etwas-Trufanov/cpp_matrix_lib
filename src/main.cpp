@@ -1,8 +1,11 @@
+#include <clocale>
 #include <iostream>
 #include "matrix.hpp"
 
-int main(int argc, char** argv)
-{
+int main(int argc, char** argv) {
+    #ifdef _WIN32
+    setlocale(LC_ALL, "ru_RU.UTF-8");
+    #endif
     if (argc < 4) {
         std::cout << "Usage:\n";
         std::cout << "  " << argv[0] << " <double|float> <method> <filename>\n";
