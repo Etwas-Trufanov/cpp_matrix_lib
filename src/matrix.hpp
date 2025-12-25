@@ -176,10 +176,7 @@ namespace math {
         }
 
         // ======================================================
-        //  Гаусс — приведение к верхней треугольной
-        // ======================================================
-        // ======================================================
-        //  Гаусс — с прямым и обратным ходом (полное решение)
+        //  Гаусс — с прямым и обратным ходом
         // ======================================================
         void gauss() {
             std::size_t n = sy;
@@ -188,9 +185,8 @@ namespace math {
 
             const T eps = 1e-12;
 
-            // Прямой ход: приведение к верхнетреугольному виду
+            // Прямой ход
             for (std::size_t k = 0; k < n; k++) {
-                // Поиск ненулевого элемента в столбце k, начиная со строки k
                 if (std::abs(m[k][k]) < eps) {
                     bool found = false;
                     for (std::size_t r = k + 1; r < n; r++) {
@@ -205,7 +201,6 @@ namespace math {
                     }
                 }
 
-                // Нормировка строки k
                 T pivot = m[k][k];
                 for (std::size_t j = k; j < sx; j++) {
                     m[j][k] /= pivot;
@@ -223,7 +218,7 @@ namespace math {
             // Обратный ход
             std::vector<T> X(n);
             for (int i = n - 1; i >= 0; i--) {
-                X[i] = m[n][i];  // Последний столбец (свободные члены)
+                X[i] = m[n][i];
                 for (std::size_t j = i + 1; j < n; j++) {
                     X[i] -= m[j][i] * X[j];
                 }
@@ -243,7 +238,7 @@ namespace math {
         }
 
         // ======================================================
-        // Жордан — к диагональному виду
+        // Жордан
         // ======================================================
         void jordan_gauss() {
             std::size_t n = sy;
@@ -270,7 +265,6 @@ namespace math {
 
         // ======================================================
         // LU-разложение + решение Ax=b
-        // Матрица должна быть n x (n+1)
         // ======================================================
         void lu_solve()
         {
@@ -300,7 +294,6 @@ namespace math {
                 }
             }
 
-            // Решения
             std::vector<T> Y(n), X(n);
 
             for (std::size_t i = 0; i < n; i++) {
@@ -323,53 +316,46 @@ namespace math {
 
         // ======================================================
         //  Метод прогонки для трёхдиагональной системы
-        //  Матрица должна быть n x (n+1)
         // ======================================================
         void tridiagonal_solve() {
             std::size_t n = sy;
             if (sx != n + 1)
                 throw std::runtime_error("tridiagonal_solve: matrix must be n×(n+1)");
 
-            // Векторы коэффициентов
-            std::vector<T> a(n);  // нижняя диагональ (l) - индексы 1..n-1
-            std::vector<T> b(n);  // главная диагональ (c) - индексы 0..n-1
-            std::vector<T> c(n);  // верхняя диагональ (r) - индексы 0..n-2
-            std::vector<T> f(n);  // правая часть - индексы 0..n-1
+            std::vector<T> a(n);
+            std::vector<T> b(n);
+            std::vector<T> c(n);
+            std::vector<T> f(n);
 
             // Извлечение коэффициентов из матрицы
             for (std::size_t i = 0; i < n; i++) {
-                // Главная диагональ
                 b[i] = m[i][i];
 
-                // Правая часть (последний столбец)
                 f[i] = m[n][i];
 
-                // Верхняя диагональ (r)
                 if (i < n - 1) {
                     c[i] = m[i+1][i];
                 }
 
-                // Нижняя диагональ (l)
                 if (i > 0) {
                     a[i] = m[i-1][i];
                 }
             }
 
-            // Прямой ход метода прогонки
+            // Прямой ход
             std::vector<T> alpha(n), beta(n);
 
             // Первый шаг
             alpha[0] = -c[0] / b[0];
             beta[0] = f[0] / b[0];
 
-            // Промежуточные шаги
             for (std::size_t i = 1; i < n - 1; i++) {
                 T denominator = b[i] + a[i] * alpha[i-1];
                 alpha[i] = -c[i] / denominator;
                 beta[i] = (f[i] - a[i] * beta[i-1]) / denominator;
             }
 
-            // Последний шаг (для нахождения beta[n-1])
+            // Последний шаг
             T denominator = b[n-1] + a[n-1] * alpha[n-2];
             beta[n-1] = (f[n-1] - a[n-1] * beta[n-2]) / denominator;
 
@@ -386,18 +372,17 @@ namespace math {
                 m[n][i] = X[i];
             }
 
-            // Для наглядности: обнулим ненужные элементы и оставим только решение
+            // Для наглядности
             for (std::size_t y = 0; y < n; y++) {
                 for (std::size_t x = 0; x < n; x++) {
                     m[x][y] = 0;
                 }
-                m[y][y] = 1;  // Единицы на диагонали для красоты
+                m[y][y] = 1;  // Единицы на диагонали для красотыs
             }
         }
 
         // ======================================================
         // Метод квадратных корней (Холецкого)
-        // Решает Ax = b, где матрица — n×(n+1)
         // ======================================================
         void sqrt_method() {
             std::size_t n = sy;
@@ -412,7 +397,6 @@ namespace math {
 
             // ===== Построение L =====
             for (std::size_t k = 0; k < n; k++) {
-                // Диагональ: l[k][k] = sqrt( a[k][k] - sum(l[k][m]^2) )
                 T sum_diag = 0;
                 for (std::size_t m2 = 0; m2 < k; m2++)
                     sum_diag += L[k][m2] * L[k][m2];
@@ -423,7 +407,6 @@ namespace math {
 
                 L[k][k] = std::sqrt(diag);
 
-                // Вне диагонали: l[i][k] = (a[i][k] - sum(l[i][m]*l[k][m])) / l[k][k]
                 for (std::size_t i = k + 1; i < n; i++) {
                     T sum = 0;
                     for (std::size_t m2 = 0; m2 < k; m2++)
@@ -465,7 +448,7 @@ namespace math {
                     m[x][y] = (x == y ? 1 : 0);
         }
         // ======================================================
-        // Метод простых итераций (Jacobi)
+        // Метод простых итераций
         // ======================================================
         void iter_method(T eps = 1e-6, int max_iter = 10000) {
             size_t n = sy;
@@ -502,7 +485,7 @@ namespace math {
 
 
         // ======================================================
-        // Метод Зейделя (Gauss–Seidel)
+        // Метод Зейделя
         // ======================================================
         void seidel_method(T eps = 1e-6, int max_iter = 10000) {
             size_t n = sy;
@@ -552,25 +535,19 @@ namespace math {
             std::size_t n = sx;
             const T eps = 1e-12;
 
-            // Создаём расширенную матрицу [A|E]
             matrix<T> aug(2 * n, n);
 
-            // Заполняем левую часть исходной матрицей
             for (std::size_t x = 0; x < n; x++)
                 for (std::size_t y = 0; y < n; y++)
                     aug.m[x][y] = m[x][y];
 
-            // Заполняем правую часть единичной матрицей
             for (std::size_t x = n; x < 2 * n; x++)
                 for (std::size_t y = 0; y < n; y++)
                     aug.m[x][y] = (x - n == y) ? static_cast<T>(1) : static_cast<T>(0);
 
-            // Применяем метод Жордана-Гаусса с правилом прямоугольника
             for (std::size_t k = 0; k < n; k++) {
-                // Если диагональный элемент близок к нулю
                 if (std::abs(aug.m[k][k]) < eps) {
                     bool found = false;
-                    // Ищем строку ниже с ненулевым элементом в том же столбце
                     for (std::size_t i = k + 1; i < n; i++) {
                         if (std::abs(aug.m[k][i]) > eps) {
                             // Прибавляем строку i к строке k
@@ -588,7 +565,7 @@ namespace math {
 
                 // 1. Пересчёт элементов вне ведущей строки и столбца по правилу прямоугольника
                 for (std::size_t i = 0; i < n; i++) {
-                    if (i == k) continue;  // Пропускаем ведущую строку
+                    if (i == k) continue;
 
                     for (std::size_t j = k + 1; j < 2 * n; j++) {
                         // Правило прямоугольника: (i,j) = (i,j)*a_kk - (i,k)*a_kj / a_kk
@@ -704,7 +681,7 @@ namespace math {
             std::size_t n = sx;
             const T eps = 1e-12;
 
-            // Проверка симметричности матрицы (опционально)
+            // Проверка симметричности матрицы
             for (std::size_t i = 0; i < n; i++) {
                 for (std::size_t j = i + 1; j < n; j++) {
                     if (std::abs(m[i][j] - m[j][i]) > eps) {
@@ -713,76 +690,77 @@ namespace math {
                 }
             }
 
-            // Шаг 1: Разложение A = L * L^T (метод Холецкого)
-            matrix<T> L(n, n);
+            matrix<T> A = *this;
 
-            // Вычисление первого столбца L
-            if (m[0][0] <= eps)
-                throw std::runtime_error("inverse_by_sqrt: matrix is not positive definite");
-
-            L.m[0][0] = std::sqrt(m[0][0]);
-
-            for (std::size_t i = 1; i < n; i++) {
-                L.m[i][0] = m[i][0] / L.m[0][0];
-            }
-
-            // Вычисление остальных элементов L
-            for (std::size_t k = 1; k < n; k++) {
-                // Диагональный элемент l[k][k]
-                T sum_diag = 0;
-                for (std::size_t m2 = 0; m2 < k; m2++) {
-                    sum_diag += L.m[k][m2] * L.m[k][m2];
-                }
-
-                T diag = m[k][k] - sum_diag;
-                if (diag <= eps)
-                    throw std::runtime_error("inverse_by_sqrt: matrix is not positive definite");
-
-                L.m[k][k] = std::sqrt(diag);
-
-                // Элементы ниже диагонали l[i][k] для i > k
-                for (std::size_t i = k + 1; i < n; i++) {
-                    T sum = 0;
-                    for (std::size_t m2 = 0; m2 < k; m2++) {
-                        sum += L.m[i][m2] * L.m[k][m2];
-                    }
-
-                    L.m[i][k] = (m[i][k] - sum) / L.m[k][k];
-                }
-            }
-
-            // Шаг 2: Вычисление обратной матрицы L⁻¹ (обозначаем Y)
-            matrix<T> Y(n, n);
+            // Шаг 1: Разложение Холецкого A = L * L^T
+            // L - нижняя треугольная матрица
+            std::vector<std::vector<T>> L(n, std::vector<T>(n, 0));
 
             for (std::size_t i = 0; i < n; i++) {
-                for (std::size_t j = 0; j < n; j++) {
-                    if (j > i) {
-                        // Выше диагонали - нули
-                        Y.m[j][i] = static_cast<T>(0);
-                    }
-                    else if (j == i) {
-                        // Диагональ: y[i][i] = 1 / l[i][i]
-                        if (std::abs(L.m[i][i]) < eps)
-                            throw std::runtime_error("inverse_by_sqrt: division by zero");
-                        Y.m[j][i] = static_cast<T>(1) / L.m[i][i];
-                    }
-                    else { // j < i
-                        // Ниже диагонали: y[i][j] = -1/l[i][i] * sum(l[i][m] * y[m][j])
-                        T sum = 0;
-                        for (std::size_t m = j; m <= i - 1; m++) {
-                            sum += L.m[i][m] * Y.m[j][m];
-                        }
+                // Вычисление диагонального элемента L[i][i]
+                T sum = 0;
+                for (std::size_t k = 0; k < i; k++) {
+                    sum += L[i][k] * L[i][k];
+                }
 
-                        if (std::abs(L.m[i][i]) < eps)
-                            throw std::runtime_error("inverse_by_sqrt: division by zero");
+                T diag = A.m[i][i] - sum;
+                if (diag <= eps) {
+                    throw std::runtime_error("inverse_by_sqrt: matrix is not positive definite");
+                }
+                L[i][i] = std::sqrt(diag);
 
-                        Y.m[j][i] = -sum / L.m[i][i];
+                for (std::size_t j = i + 1; j < n; j++) {
+                    sum = 0;
+                    for (std::size_t k = 0; k < i; k++) {
+                        sum += L[j][k] * L[i][k];
+                    }
+                    L[j][i] = (A.m[j][i] - sum) / L[i][i];
+                }
+            }
+
+            // Шаг 2: Нахождение обратной матрицы L⁻¹
+            std::vector<std::vector<T>> Y(n, std::vector<T>(n, 0));
+
+            for (std::size_t col = 0; col < n; col++) {
+                for (std::size_t i = 0; i < n; i++) {
+                    T sum = 0;
+                    for (std::size_t k = 0; k < i; k++) {
+                        sum += L[i][k] * Y[k][col];
+                    }
+
+                    if (i == col) {
+                        Y[i][col] = (1.0 - sum) / L[i][i];
+                    } else {
+                        Y[i][col] = (0.0 - sum) / L[i][i];
                     }
                 }
             }
 
-            // Шаг 3: Вычисление A⁻¹ = Y^T * Y
-            matrix<T> result = Y.transpose() * Y;
+            // Шаг 3: Вычисление A⁻¹ = (L⁻¹)^T * L⁻¹ = Y^T * Y
+            std::vector<std::vector<T>> YT(n, std::vector<T>(n, 0));
+            for (std::size_t i = 0; i < n; i++) {
+                for (std::size_t j = 0; j < n; j++) {
+                    YT[i][j] = Y[j][i];
+                }
+            }
+
+            std::vector<std::vector<T>> inv_temp(n, std::vector<T>(n, 0));
+            for (std::size_t i = 0; i < n; i++) {
+                for (std::size_t j = 0; j < n; j++) {
+                    T sum = 0;
+                    for (std::size_t k = 0; k < n; k++) {
+                        sum += YT[i][k] * Y[k][j];
+                    }
+                    inv_temp[i][j] = sum;
+                }
+            }
+
+            matrix<T> result(n, n);
+            for (std::size_t x = 0; x < n; x++) {
+                for (std::size_t y = 0; y < n; y++) {
+                    result.m[x][y] = inv_temp[y][x];
+                }
+            }
 
             return result;
         }
@@ -801,7 +779,6 @@ namespace math {
             const T eps = 1e-12;
 
             for (std::size_t j = 0; j < n; j++) {
-                // Норма столбца j
                 T norm = 0;
                 for (std::size_t i = 0; i < n; i++)
                     norm += Q.m[i][j] * Q.m[i][j];
@@ -821,7 +798,6 @@ namespace math {
                     Q.m[i][j] /= norm;
 
 
-                // Ортогонализация остальных столбцов
                 for (std::size_t k = j + 1; k < n; k++) {
                     T dot = 0;
                     for (std::size_t i = 0; i < n; i++) {
@@ -849,7 +825,6 @@ namespace math {
             matrix<T> Q(n, n), R(n, n);
 
             for (int iter = 0; iter < iterations; iter++) {
-                // Сдвиг — последний диагональный элемент
                 T mu = A.m[n-1][n-1];
 
                 // A - mu*I
