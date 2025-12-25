@@ -544,7 +544,6 @@ namespace math {
 
         // ======================================================
         //  Обращение матрицы методом присоединённой матрицы
-        //  (Точная реализация по методу из документа)
         // ======================================================
         matrix<T> inverse_by_adjoint() {
             if (sx != sy)
@@ -630,105 +629,69 @@ namespace math {
             std::size_t n = sx;
             const T eps = 1e-12;
 
-            // Создаём копию исходной матрицы для вычислений
-            matrix<T> A_copy = *this;
+            matrix<T> A = *this;
 
-            // Шаг 1: LU-разложение (A = L * U)
-            // L - нижняя треугольная, U - верхняя треугольная с единицами на диагонали
+            // --- LU-разложение: A = L * U (U с единицами на диагонали) ---
+            matrix<T> L(n, n), U(n, n);
 
-            matrix<T> L(n, n);
-            matrix<T> U(n, n);
-
-            // Инициализация U: единичная диагональ
-            for (std::size_t i = 0; i < n; i++) {
+            for (std::size_t i = 0; i < n; i++)
                 U.m[i][i] = static_cast<T>(1);
-            }
 
-            // Вычисление первого столбца L
-            for (std::size_t i = 0; i < n; i++) {
-                L.m[i][0] = A_copy.m[i][0];
-            }
-
-            // Вычисление первой строки U
-            for (std::size_t j = 1; j < n; j++) {
-                if (std::abs(L.m[0][0]) < eps)
-                    throw std::runtime_error("inverse_by_lu: matrix is singular");
-                U.m[0][j] = A_copy.m[0][j] / L.m[0][0];
-            }
-
-            // Вычисление остальных элементов L и U
-            for (std::size_t k = 1; k < n; k++) {
-                // Вычисление столбца k матрицы L
-                for (std::size_t i = k; i < n; i++) {
-                    L.m[i][k] = A_copy.m[i][k];
-                    for (std::size_t m = 0; m < k; m++) {
-                        L.m[i][k] -= L.m[i][m] * U.m[m][k];
-                    }
+            for (std::size_t j = 0; j < n; j++) {
+                // столбец L
+                for (std::size_t i = j; i < n; i++) {
+                    T sum = 0;
+                    for (std::size_t k = 0; k < j; k++)
+                        sum += L.m[i][k] * U.m[k][j];
+                    L.m[i][j] = A.m[i][j] - sum;
                 }
 
-                // Вычисление строки k матрицы U (только элементы справа от диагонали)
-                if (std::abs(L.m[k][k]) < eps)
+                if (std::abs(L.m[j][j]) < eps)
                     throw std::runtime_error("inverse_by_lu: matrix is singular");
 
-                for (std::size_t j = k + 1; j < n; j++) {
-                    U.m[k][j] = A_copy.m[k][j];
-                    for (std::size_t m = 0; m < k; m++) {
-                        U.m[k][j] -= L.m[k][m] * U.m[m][j];
-                    }
-                    U.m[k][j] /= L.m[k][k];
+                // строка U
+                for (std::size_t k = j + 1; k < n; k++) {
+                    T sum = 0;
+                    for (std::size_t i = 0; i < j; i++)
+                        sum += L.m[j][i] * U.m[i][k];
+                    U.m[j][k] = (A.m[j][k] - sum) / L.m[j][j];
                 }
             }
 
-            // Шаг 2: Вычисление обратных матриц L⁻¹ (Y) и U⁻¹ (X)
+            // --- Решаем A * X = I через LU ---
+            matrix<T> inv(n, n);
 
-            // L⁻¹ (обозначаем Y) - нижняя треугольная матрица
-            matrix<T> Y(n, n);
+            for (std::size_t col = 0; col < n; col++) {
+                // L * y = e_col
+                std::vector<T> y(n, 0);
+                for (std::size_t i = 0; i < n; i++) {
+                    T sum = 0;
+                    for (std::size_t k = 0; k < i; k++)
+                        sum += L.m[i][k] * y[k];
 
-            for (std::size_t i = 0; i < n; i++) {
-                for (std::size_t j = 0; j < n; j++) {
-                    if (j > i) {
-                        Y.m[j][i] = static_cast<T>(0);
-                    } else if (j == i) {
-                        if (std::abs(L.m[i][i]) < eps)
-                            throw std::runtime_error("inverse_by_lu: matrix is singular");
-                        Y.m[j][i] = static_cast<T>(1) / L.m[i][i];
-                    } else { // j < i
-                        T sum = 0;
-                        for (std::size_t m = j; m <= i - 1; m++) {
-                            sum += L.m[i][m] * Y.m[j][m];
-                        }
-                        if (std::abs(L.m[i][i]) < eps)
-                            throw std::runtime_error("inverse_by_lu: matrix is singular");
-                        Y.m[j][i] = -sum / L.m[i][i];
-                    }
+                    y[i] = ((i == col) ? 1 : 0) - sum;
+                    y[i] /= L.m[i][i];
                 }
+
+                // U * x = y
+                std::vector<T> x(n, 0);
+                for (int i = (int)n - 1; i >= 0; i--) {
+                    T sum = 0;
+                    for (std::size_t k = i + 1; k < n; k++)
+                        sum += U.m[i][k] * x[k];
+
+                    // U[i][i] == 1
+                    x[i] = y[i] - sum;
+                }
+
+                // записываем столбец
+                for (std::size_t i = 0; i < n; i++)
+                    inv.m[i][col] = x[i];
             }
 
-            // U⁻¹ (обозначаем X) - верхняя треугольная матрица
-            matrix<T> X(n, n);
-
-            // Вычисляем в обратном порядке (от n-1 до 0)
-            for (int i = n - 1; i >= 0; i--) {
-                for (int j = n - 1; j >= 0; j--) {
-                    if (j < i) {
-                        X.m[j][i] = static_cast<T>(0);
-                    } else if (j == i) {
-                        X.m[j][i] = static_cast<T>(1);
-                    } else { // j > i
-                        T sum = 0;
-                        for (int m = i + 1; m <= j; m++) {
-                            sum += U.m[i][m] * X.m[j][m];
-                        }
-                        X.m[j][i] = -sum;
-                    }
-                }
-            }
-
-            // Шаг 3: Вычисление A⁻¹ = U⁻¹ * L⁻¹ = X * Y
-            matrix<T> result = X * Y;
-
-            return result;
+            return inv;
         }
+
 
         // ======================================================
         //  Обращение матрицы методом квадратных корней (Холецкого)
